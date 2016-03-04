@@ -9,6 +9,7 @@ import re, uwsgi
 import gevent.select
 from six.moves import http_client
 from redis import StrictRedis
+from collections import deque
 from django import http
 from django.conf import settings
 from django.contrib.auth import get_user
@@ -93,7 +94,7 @@ class uWSGIWebsocketServer(object):
             redis_fd = subscriber.get_file_descriptor()
             listening_fds = [fd for fd in (websocket_fd, redis_fd) if fd]
             subscriber.on_connect(request, websocket)
-            recvmsg = None
+            recent = deque(maxlen=10)
             while websocket and not websocket.closed:
                 ready = self.select(listening_fds, [], [], 4.0)[0]
                 if not ready:
@@ -104,9 +105,10 @@ class uWSGIWebsocketServer(object):
                         if recvmsg:
                             recvmsg = subscriber.on_receive_message(request, websocket, recvmsg)
                             subscriber.publish_message(recvmsg)
+                            recent.append(recvmsg)
                     elif fd == redis_fd:
                         sendmsg = RedisMessage(subscriber.parse_response())
-                        if sendmsg and (echo or sendmsg != recvmsg):
+                        if sendmsg and (echo or sendmsg not in recent):
                             sendmsg = subscriber.on_send_message(request, websocket, sendmsg)
                             websocket.send(sendmsg)
                     else:
