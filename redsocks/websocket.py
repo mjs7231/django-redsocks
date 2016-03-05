@@ -36,4 +36,4 @@ class uWSGIWebsocket(object):
     def close(self, *args, **kwargs):
         self.closed = True
         if kwargs.get('err'):
-            raise WebSocketError(kwargs['err'])
+            raise WebSocketError(kwargs.get('err', 'NA'))
