@@ -74,7 +74,7 @@ class RedisSubscriber(RedisStore):
         return message
         
     def on_error(self, request, websocket, err):
-        log.error('Error: %s', err, exc_info=err)
+        log.error('Error: %s', err)
         if isinstance(err, WebSocketError): return http.HttpResponse(status=1001, content='Websocket closed.')
         if isinstance(err, UpgradeRequiredError): return http.HttpResponseBadRequest(status=426, content=err)
         if isinstance(err, HandshakeError): return http.HttpResponseBadRequest(content=err)
