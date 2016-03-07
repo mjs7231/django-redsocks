@@ -2,7 +2,7 @@
 from django import http
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from redsocks.redisstore import RedisStore, SELF
+from redsocks.redisstore import SELF, RedisStore, RedisMessage
 from redsocks.exceptions import WebSocketError, HandshakeError, UpgradeRequiredError
 from redsocks import log
 
@@ -17,9 +17,9 @@ class RedisSubscriber(RedisStore):
     subscription_channels = ['subscribe-session', 'subscribe-group', 'subscribe-user', 'subscribe-broadcast']
     publish_channels = ['publish-session', 'publish-group', 'publish-user', 'publish-broadcast']
 
-    def __init__(self, connection):
+    def __init__(self, client):
         self.subscription = None
-        super(RedisSubscriber, self).__init__(connection)
+        super(RedisSubscriber, self).__init__(client)
 
     def allowed_channels(self, request, channels):
         """ Can be used to restrict the subscription/publishing channels for the current client. This callback
@@ -29,11 +29,14 @@ class RedisSubscriber(RedisStore):
         
     def get_file_descriptor(self):
         """ Return file descriptor used for select call when listening on message queue. """
-        return self.subscription.connection and self.subscription.connection._sock.fileno()
-
-    def parse_response(self):
-        """ Parse a message response sent by the Redis datastore on a subscribed channel. """
-        return self.subscription.parse_response()
+        if self.subscription.connection:
+            return self.subscription.connection._sock.fileno()
+        return None
+        
+    def send_message(self, message):
+        if not isinstance(message, RedisMessage):
+            raise ValueError('Message object is not of type RedisMessage')
+        self.websocket.send(message)
         
     def set_pubsub_channels(self, request, channels):
         """ Initialize the channels used for publishing and subscribing messages through the message queue. """

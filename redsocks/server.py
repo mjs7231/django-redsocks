@@ -7,8 +7,6 @@ django.setup()
 
 import re, uwsgi
 import gevent.select
-from six.moves import http_client
-from redis import StrictRedis
 from collections import deque
 from django import http
 from django.conf import settings
@@ -17,18 +15,22 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.utils.encoding import force_str
 from django.utils.functional import SimpleLazyObject
 from importlib import import_module
-from redsocks import settings as private_settings
+from redis import StrictRedis
+from redsocks import log
+from redsocks import settings as rsettings
 from redsocks.exceptions import HandshakeError
 from redsocks.redisstore import RedisMessage
 from redsocks.websocket import uWSGIWebsocket
-from redsocks import log
+from six.moves import http_client
+
+BINARY_HEARTBEAT = settings.REDSOCKS_HEARTBEAT.encode()
 
 
 class uWSGIWebsocketServer(object):
     
-    def __init__(self, redis_connection=None):
-        self._subscribers = [(re.compile(p), s) for p,s in private_settings.REDSOCKS_SUBSCRIBERS.items()]
-        self._redis_connection = redis_connection and redis_connection or StrictRedis(**private_settings.REDSOCKS_CONNECTION)
+    def __init__(self, redis_client=None):
+        self._subscribers = [(re.compile(p), s) for p,s in rsettings.REDSOCKS_SUBSCRIBERS.items()]
+        self.redis_client = redis_client or StrictRedis(**rsettings.REDSOCKS_CONNECTION)
 
     def assert_protocol_requirements(self, environ):
         if environ.get('REQUEST_METHOD') != 'GET':
@@ -40,14 +42,14 @@ class uWSGIWebsocketServer(object):
 
     def find_subscriber(self, request):
         """ Lookup subscriber class from facility string. """
-        facility = request.path_info.replace(settings.WEBSOCKET_URL, '', 1)
+        facility = request.path_info.replace(rsettings.WEBSOCKET_URL, '', 1)
         for pattern, substr in self._subscribers:
             matches = [pattern.match(facility)]
             if list(filter(None, matches)):
                 comps = str(substr).split('.')
                 module = import_module('.'.join(comps[:-1]))
                 subcls = getattr(module, comps[-1])
-                return subcls(self._redis_connection)
+                return subcls(self.redis_client)
         # Found no matching subscribers, raise error
         raise HandshakeError('Unknown facility: %s' % facility)
     
@@ -102,19 +104,19 @@ class uWSGIWebsocketServer(object):
                 for fd in ready:
                     if fd == websocket_fd:
                         recvmsg = RedisMessage(websocket.receive())
-                        if recvmsg:
+                        if recvmsg and recvmsg == BINARY_HEARTBEAT:
+                            websocket.send(rsettings.REDSOCKS_HEARTBEAT)
+                        elif recvmsg and recvmsg != BINARY_HEARTBEAT:
                             recvmsg = subscriber.on_receive_message(request, websocket, recvmsg)
                             subscriber.publish_message(recvmsg)
                             recent.append(recvmsg)
                     elif fd == redis_fd:
-                        sendmsg = RedisMessage(subscriber.parse_response())
+                        sendmsg = RedisMessage(subscriber.subscription.parse_response()[2])
                         if sendmsg and (echo or sendmsg not in recent):
                             sendmsg = subscriber.on_send_message(request, websocket, sendmsg)
                             websocket.send(sendmsg)
                     else:
                         log.error('Invalid file descriptor: %s', fd)
-                if private_settings.REDSOCKS_HEARTBEAT and not websocket.closed:
-                    websocket.send(private_settings.REDSOCKS_HEARTBEAT)
             response = http.HttpResponse()
         except Exception as err:
             response = subscriber.on_error(request, websocket, err)

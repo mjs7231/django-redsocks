@@ -7,22 +7,12 @@ SELF = type('SELF_TYPE', (object,), {})()
 
 
 class RedisMessage(six.binary_type):
-    """ Wraps messages to be sent and received through RedisStore. Behaves like a normal string
-        class, but silently discards heartbeats and converts messages received from Redis.
-    """
+    """ Wraps messages to be sent and received through RedisStore. """
     def __new__(cls, value):
-        if six.PY3:
-            if isinstance(value, str) and value != settings.REDSOCKS_HEARTBEAT:
-                return super(RedisMessage, cls).__new__(cls, value.encode())
-            elif isinstance(value, bytes) and value != settings.REDSOCKS_HEARTBEAT.encode():
-                return super(RedisMessage, cls).__new__(cls, value)
-            elif isinstance(value, list) and len(value) >= 2 and value[0] == b'message':
-                return super(RedisMessage, cls).__new__(cls, value[2])
-        else:
-            if isinstance(value, six.string_types) and value != settings.REDSOCKS_HEARTBEAT:
-                return six.binary_type.__new__(cls, value)
-            elif isinstance(value, list) and len(value) >= 2 and value[0] == 'message':
-                return six.binary_type.__new__(cls, value[2])
+        if isinstance(value, bytes):
+            return super(RedisMessage, cls).__new__(cls, value)
+        if isinstance(value, str):
+            return super(RedisMessage, cls).__new__(cls, value.encode())
         return None
 
 
