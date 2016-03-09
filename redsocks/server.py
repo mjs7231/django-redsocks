@@ -110,7 +110,8 @@ class uWSGIWebsocketServer(object):
                             subscriber.publish_message(recvmsg)
                             recent.append(recvmsg)
                     elif fd == redis_fd:
-                        sendmsg = utils.to_bytes(subscriber.subscription.parse_response()[2])
+                        sendmsg = subscriber.subscription.parse_response()
+                        sendmsg = utils.to_bytes(sendmsg[2])
                         if sendmsg and (echo or sendmsg not in recent):
                             sendmsg = subscriber.on_send_message(request, websocket, sendmsg)
                             websocket.send(sendmsg)
