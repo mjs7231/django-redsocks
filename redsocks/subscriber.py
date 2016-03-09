@@ -2,7 +2,7 @@
 from django import http
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from redsocks.redisstore import SELF, RedisStore, RedisMessage
+from redsocks.redisstore import SELF, RedisStore
 from redsocks.exceptions import WebSocketError, HandshakeError, UpgradeRequiredError
 from redsocks import log
 
@@ -34,8 +34,6 @@ class RedisSubscriber(RedisStore):
         return None
         
     def send_message(self, message):
-        if not isinstance(message, RedisMessage):
-            raise ValueError('Message object is not of type RedisMessage')
         self.websocket.send(message)
         
     def set_pubsub_channels(self, request, channels):
@@ -77,7 +75,7 @@ class RedisSubscriber(RedisStore):
         return message
         
     def on_error(self, request, websocket, err):
-        log.error('Error: %s', err)
+        log.error(err, exc_info=1)
         if isinstance(err, WebSocketError): return http.HttpResponse(status=1001, content='Websocket closed.')
         if isinstance(err, UpgradeRequiredError): return http.HttpResponseBadRequest(status=426, content=err)
         if isinstance(err, HandshakeError): return http.HttpResponseBadRequest(content=err)

@@ -16,14 +16,13 @@ from django.utils.encoding import force_str
 from django.utils.functional import SimpleLazyObject
 from importlib import import_module
 from redis import StrictRedis
-from redsocks import log
+from redsocks import log, utils
 from redsocks import settings as rsettings
 from redsocks.exceptions import HandshakeError
-from redsocks.redisstore import RedisMessage
 from redsocks.websocket import uWSGIWebsocket
 from six.moves import http_client
 
-BINARY_HEARTBEAT = settings.REDSOCKS_HEARTBEAT.encode()
+BYTES_HEARTBEAT = utils.to_bytes(settings.REDSOCKS_HEARTBEAT)
 
 
 class uWSGIWebsocketServer(object):
@@ -103,15 +102,15 @@ class uWSGIWebsocketServer(object):
                     websocket.flush()
                 for fd in ready:
                     if fd == websocket_fd:
-                        recvmsg = RedisMessage(websocket.receive())
-                        if recvmsg and recvmsg == BINARY_HEARTBEAT:
-                            websocket.send(rsettings.REDSOCKS_HEARTBEAT)
-                        elif recvmsg and recvmsg != BINARY_HEARTBEAT:
+                        recvmsg = utils.to_bytes(websocket.receive())
+                        if recvmsg and recvmsg == BYTES_HEARTBEAT:
+                            websocket.send(recvmsg)
+                        elif recvmsg:
                             recvmsg = subscriber.on_receive_message(request, websocket, recvmsg)
                             subscriber.publish_message(recvmsg)
                             recent.append(recvmsg)
                     elif fd == redis_fd:
-                        sendmsg = RedisMessage(subscriber.subscription.parse_response()[2])
+                        sendmsg = utils.to_bytes(subscriber.subscription.parse_response()[2])
                         if sendmsg and (echo or sendmsg not in recent):
                             sendmsg = subscriber.on_send_message(request, websocket, sendmsg)
                             websocket.send(sendmsg)

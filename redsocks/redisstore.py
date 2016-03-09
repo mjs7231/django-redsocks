@@ -1,19 +1,9 @@
 # -*- coding: utf-8 -*-
 import six
-from redsocks import settings
+from redsocks import settings, utils
 
 # refers to self as a user or group.
 SELF = type('SELF_TYPE', (object,), {})()
-
-
-class RedisMessage(six.binary_type):
-    """ Wraps messages to be sent and received through RedisStore. """
-    def __new__(cls, value):
-        if isinstance(value, bytes):
-            return super(RedisMessage, cls).__new__(cls, value)
-        if isinstance(value, str):
-            return super(RedisMessage, cls).__new__(cls, value.encode())
-        return None
 
 
 class RedisStore(object):
@@ -35,9 +25,8 @@ class RedisStore(object):
             published, also be persisted in the Redis datastore. If unset, it defaults to the
             configuration settings REDSOCKS_EXPIRE.
         """
-        if not isinstance(message, RedisMessage):
-            raise ValueError('Message object is not of type RedisMessage')
         expire = expire or settings.REDSOCKS_EXPIRE
+        message = utils.to_bytes(message)
         for channel in self.publishers:
             self.client.publish(channel, message)
             if expire > 0:
