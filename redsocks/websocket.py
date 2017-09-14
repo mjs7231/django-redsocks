@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import uwsgi
 from redsocks.exceptions import WebSocketError
+from redsocks.utils import uwsgi
 
 
 class uWSGIWebsocket(object):

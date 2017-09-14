@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 import six
 
+# Try to import uwsgi. When running the dev server via redsocks.runserver.server,
+# this is not needed. So we can simply set it to none to make imports heppy.
+try:
+    import uwsgi
+except:
+    uwsgi = None
+
 
 def to_bytes(value):
     if six.PY3 and isinstance(value, bytes): return value

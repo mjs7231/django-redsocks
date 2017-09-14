@@ -5,7 +5,7 @@ Django-Redsox Project 2016
 import django
 django.setup()
 
-import re, uwsgi
+import re
 import gevent.select
 from collections import deque
 from django import http
@@ -19,6 +19,7 @@ from redis import StrictRedis
 from redsocks import log, utils
 from redsocks import settings as rsettings
 from redsocks.exceptions import HandshakeError
+from redsocks.utils import uwsgi
 from redsocks.websocket import uWSGIWebsocket
 from six.moves import http_client
 
