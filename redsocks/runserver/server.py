@@ -58,7 +58,7 @@ class DjangoWebsocketServer(uWSGIWebsocketServer):
         return select.select(rlist, wlist, xlist, timeout)
 
 
-def run(addr, port, wsgi_handler, ipv6=False, threading=False):
+def run(addr, port, wsgi_handler, ipv6=False, threading=False, server_cls=None):
     """ Function to monkey patch the internal Django command: manage.py runserver """
     log.info('Websocket support is enabled')
     server_address = (addr, port)
